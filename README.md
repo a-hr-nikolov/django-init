@@ -6,9 +6,94 @@ For initial information on the style, check [HackSoft's Django Styleguide](https
 
 ## Usage
 
-Delete anything that isn't needed in your project. That would mostly be the files in **config/settings/**.
+Delete anything that isn't needed in your project. That would mostly be the files in **/config/settings/**.
 
-You will not find a **settings.py** module however. Instead, that file is now **config/django/base.py**, which is extended by **production.py**, and **test.py** in the same directory. It has been correctly configured in manage.py for local development.
+### Virtual Environments and Dependency Management
+
+#### Using `Poetry`
+
+This project uses **[poetry](https://python-poetry.org/docs/basic-usage/)** for its venv and dependency management through a [pyproject.toml](https://python-poetry.org/docs/pyproject/) file in the root directory. It handles everything in one place, provides a `.lock` file and is generally much nicer to use. Some people have reported issues in having it play nice with `Docker`. It simply requires a bit of configuration. Read more [here](https://gist.github.com/soof-golan/6ebb97a792ccd87816c0bda1e6e8b8c2) and [here](https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0). You can also [watch this](https://www.youtube.com/watch?v=hXYFS2pOEH8).
+
+Install **poetry** globally (no guide, as it depends on your OS).
+
+I've configured it in [dependency management mode](https://python-poetry.org/docs/basic-usage/#operating-modes) (it defaults to package management). Package management mode requires a directory with the same name as the package, but `-` is replaced with `_`. There are three general approaches when using **Django**:
+
+1. Rename the `apps` directory to `my_poetry_project` (not recommended, will break the world).
+2. Rename the `config` directory to `my_poetry_project` (the most painless). Don't forget to update manage.py (i.e. config.django.base > my_project.django.base).
+3. Create a `my_poetry_project` directory, and only put an `__init__.py` file in.
+4. Create a `my_poetry_project` directory, and put everything Django-related in it. Beware though, as this will break paths and you will have to set them manually. For example, in `/config/django/base.py` you will have to add a `.parent` to `BASE_URL`.
+
+I lean towards the 2nd option, but all of them will require more distribution configuration, when you are ready to use **poetry** to package the code. Only the 4th option wouldn't really need that.
+
+```toml
+[tool.poetry]
+name = ""  # ex. "my-project", requires dir "/my_project", if package-mode = true.
+version = "0.1.0"
+description = ""
+authors = ["John Doe <john.doe@example.com>"]
+readme = "README.md"
+package-mode = false  # set to true to enable package mode
+```
+
+**Basic usage**
+
+```bash
+poetry install  # installs the project, and is run after pyproject.toml changes
+poetry add <name-of-dependency>  # adds packages https://python-poetry.org/docs/cli/#add
+poetry add --group dev <dep>  # adds a dependency to a group named `dev`
+poetry remove <dependency>
+poetry update
+```
+
+**On the server**
+
+```bash
+poetry install --without dev  # list all other dependency groups to exclude
+poetry install --only main  # an alternative to the previous command
+```
+
+#### Using `venv` and `pip`
+
+You are free to use the vastly inferior setup with `venv` and `pip`, but you will have to create your own `requirements.txt` file, and place it somewhere. I recommend having a `/requirements/` directory with 2 files: `base.txt` and `local.txt`, which includes `-r base.txt` as its first line (as `pip` is going to run it as a script).
+
+```bash
+python -m venv <env-name, usually .venv>
+
+# Linux & Mac
+source venv/bin/activate
+
+# Windows
+venv\Scripts\activate
+
+# Requirements install
+pip install -r ./requirements/local.txt
+```
+
+### settings.py
+
+This module does not exist. Instead, this configuration is now found completely at **/config/django/base.py**, which is extended by **production.py**, and **test.py** in the same directory. It has been correctly configured in **manage.py** for local development.
+
+I have specifically improved the layout with clear separation between the different configuration blocks. Before that they were only a single commented line, very hard to scan.
+
+Configuration blocks can be further split into modules (e.g. dj-database.py, dj-static.py, dj-drf.py, etc.). There is a slight overhead, but shouldn't be that noticeable. If your base config grows large, consider splitting. In fact, I prefer it split, but having a large number of files is also often a problem, so I've kept the config in **base.py**. I strongly advice you to make comments noticeable in your IDE, as some themes deliberately make them almost fade into the background.
+
+#### Example
+
+```python
+########################################################################################
+#
+# DATABASE
+#
+########################################################################################
+# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+########################################################################################
+```
+
+### /config/settings/
+
+All third-party integrations are handled through their respective modules in **/config/settings/**. Then they are imported at the end of **/config/django/base.py**, where there are third-party settings and configuration.
+
+**IMPORTANT:** All third-party configuration imports are currently commented.
 
 ### Django REST Framework
 
@@ -28,11 +113,13 @@ HackSoft's approach defines the business-specific exceptions in a **core** app. 
 
 **General Advice**: Use HackSoft's suggestion, as it provides a really nice and uniform error messaging. Just make sure that whatever custom errors you define all inherit from ApplicationError.
 
+---
+
 ## Personal Style Guide
 
-I will use this starter setup to also talk a little bit about the style guide mentioned above. I will mainly comment on things I have a different philosophy on. Keep in mind that if you are torn between my approach and theirs, default to theirs. Compared to them, my experience is miniscule. However, I think that my mind works well with abstractions (I have an intuitive "feel" for them), and my approach just "fits" better in my eyes.
+I will use this starter setup to also talk a little bit about the HackSoft's style guide mentioned above. I will mainly comment on things I have a different philosophy on. Keep in mind that if you are torn between my approach and theirs, default to theirs. Compared to them, my experience is miniscule.
 
-That being said, if you are not the one deciding the style for your team (like me, for example), it doesn't really matter. I am perfectly fine working with whatever conventions. This here is for playground projects mostly. And while some would argue that we shouldn't worry about the structure and architecture of pet projects, I feel like developing a feel for proper structure can only happen if you focus on it. Yes, even on pet projects.
+That being said, if you are not the one deciding the style for your team (like me, for example), it doesn't really matter. I am perfectly fine working with any convention, as long as there actually is one. This here is for playground projects mostly. And while some would argue that we shouldn't worry about the structure and architecture of pet projects, I feel like developing a feel for proper structure can only happen if you focus on it. Yes, even on pet projects.
 
 Anyway, consider everything below **a tangent** to the starter setup. It isn't needed to get coding.
 
@@ -70,7 +157,7 @@ If we have very complex filtering requirements, then sure, by all means, write a
 4. Following from the above, we can infer the following:
    - Selectors should exist as a part of the **service layer**, so their API is available (and discoverable) in the IDE.
    - If they exist for a certain model, that means filtering is more complex for said model. If they don't exist, we can assume filtering is simple.
-   - A new person will more quickly realize which APIs are tied to more complex backend interactions, and which to more simple ones.
+   - A new person will more quickly realize which APIs are tied to more complex backend interactions, and which - to simpler ones.
 
 So for the price of not having uniform service-layer access for every single model, we get the benefits of understanding the complexity of an API backend, without having to look at it specifically.
 
@@ -88,9 +175,9 @@ But I hear you. It doesn't feel right to not test the filtering logic. However, 
 
 Ultimately, we have to test the API. We may have written the perfect filter, but if we are not correctly configuring the API, it wouldn't matter. On the other hand, if we are testing the API, why not simply have the selection logic there? Since filtering on the API is by configuration, we can simply test whether the API returns what's expected.
 
-Of course, for a selector that does complex filtering, we have to test it separately, so we know our filtering logic works. But then we are truly testing what brings value, not an arbitrary "for-the-sake-of-having-it" abstraction.
+Of course, for a selector that does complex filtering, we have to test it separately, so we know our filtering logic works. But then we are truly testing what brings value, not a pass-through abstraction.
 
-All in all, simple selectors shouldn't exist, as the API test will cover the filtering. When complex selectors do exist, we need an additional test, and we still **should not** skip the API one.
+All in all, simple selectors shouldn't exist, as the API test will cover the filtering. When complex selectors do exist, we need an additional test, and we still **should not** skip the API one. "But this is integration testing!", I hear you say. Call it whatever. It's what's valuable here.
 
 #### But what if we need complex filtering in the future?
 

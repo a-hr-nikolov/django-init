@@ -12,7 +12,12 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 SECRET_KEY = env.str("SECRET_KEY")
 
-# Application definition
+########################################################################################
+#
+# APPLICATION DEFINITION & DJANGO-RELATED CONFIG
+#
+########################################################################################
+
 LOCAL_APPS = [
     "apps.common",
     "apps.users",
@@ -68,8 +73,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
-# Database
+########################################################################################
+#
+# DATABASE
+#
+########################################################################################
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+########################################################################################
 
 DATABASES = {
     "default": {
@@ -96,8 +106,13 @@ DATABASES = {
 # DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
 
-# Password validation
+########################################################################################
+#
+# PASSWORD VALIDATION
+#
+########################################################################################
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
+########################################################################################
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -115,8 +130,13 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
+########################################################################################
+#
+# INTERNATIONALIZATION
+#
+########################################################################################
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
+########################################################################################
 
 LANGUAGE_CODE = "en-us"
 
@@ -126,11 +146,19 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
+########################################################################################
+#
+# STATIC FILES (CSS, JavaScript, Images)
+#
+########################################################################################
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
+########################################################################################
 
 STATIC_URL = "static/"
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_URL = "/static/"
+# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -138,9 +166,14 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-##########################
-### THIRD PARTY CONFIG ###
-##########################
+########################################################################################
+#
+# REST FRAMEWORK
+#
+########################################################################################
+# https://www.django-rest-framework.org/api-guide/settings/
+########################################################################################
+
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.api.exception_handlers.improved_exception_handler",
     # "EXCEPTION_HANDLER": "apps.api.exception_handlers.simple_mapping_exception_handler",
@@ -150,6 +183,11 @@ REST_FRAMEWORK = {
     # "DEFAULT_AUTHENTICATION_CLASSES": [],
 }
 
+########################################################################################
+#
+# THIRD PARTY CONFIG
+#
+########################################################################################
 
 # from config.settings.celery import *  # noqa
 # from config.settings.cors import *  # noqa
