@@ -54,6 +54,8 @@ poetry install --only main  # an alternative to the previous command
 
 #### Using `venv` and `pip`
 
+**NOTE:** You can use `poetry export` to export the requirements.txt file. So I strongly advise you to install **poetry** at least for that, as well as the **poetry-plugin-export**. Installation is system dependent, so I can't guide you here, but it can save a lot of work.
+
 You are free to use the vastly inferior setup with `venv` and `pip`, but you will have to create your own `requirements.txt` file, and place it somewhere. I recommend having a `/requirements/` directory with 2 files: `base.txt` and `local.txt`, which includes `-r base.txt` as its first line (as `pip` is going to run it as a script).
 
 ```bash
@@ -64,6 +66,14 @@ source venv/bin/activate
 
 # Windows
 venv\Scripts\activate
+
+# Using poetry to generate `requirements.txt`
+# The non-poetry commands below are for Linux. I don't know PowerShell, so Windows users
+# are on their own here.
+mkdir requirements
+poetry export -f requirements.txt --output ./requirements/base.txt --without-hashes --without dev
+poetry export -f requirements.txt --output ./requirements/local.txt --without-hashes --only dev
+(echo "-r base.txt" && cat ./requirements/local.txt) > temp_file && mv temp_file ./requirements/local.txt
 
 # Requirements install
 pip install -r ./requirements/local.txt
