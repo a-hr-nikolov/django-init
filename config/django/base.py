@@ -24,6 +24,7 @@ LOCAL_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    "corsheaders",
     "rest_framework",
     "django_filters",
 ]
@@ -44,6 +45,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    # "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -190,7 +193,7 @@ REST_FRAMEWORK = {
 ########################################################################################
 
 # from config.settings.celery import *  # noqa
-# from config.settings.cors import *  # noqa
+from config.settings.cors import *  # noqa
 # from config.settings.email_sending import *  # noqa
 # from config.settings.files_and_storages import *  # noqa
 # from config.settings.google_oauth2 import *  # noqa

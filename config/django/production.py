@@ -2,15 +2,32 @@ from config.env import env
 
 from .base import *  # noqa
 
+########################################################################################
+#
+# DJANGO CONFIG OVERRIDE -- from config.django.base
+#
+########################################################################################
+
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
-
 SECRET_KEY = env("SECRET_KEY")
-
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+
+
+########################################################################################
+#
+# CORS CONFIG OVERRIDE -- from config.settings.cors
+#
+########################################################################################
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ORIGIN_WHITELIST = env.list("CORS_ORIGIN_WHITELIST", default=[])
 
+
+########################################################################################
+#
+# AUTH CONFIG
+#
+########################################################################################
 SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=True)
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-proxy-ssl-header

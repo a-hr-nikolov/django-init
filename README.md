@@ -4,13 +4,19 @@ A Django starter setup for quick project configuration. Inspired by [HackSoft's 
 
 For initial information on the style, check [HackSoft's Django Styleguide](https://github.com/HackSoftware/Django-Styleguide).
 
-## Usage
+## Summary of My Changes (tl;dr)
 
-Delete anything that isn't needed in your project. That would mostly be the files in **/config/settings/**.
+- I've added more explanations wherever I think was relevant, including in this guide. HackSoft assume a basic knowledge of Django and Python packages. I try not to assume that, so I explain why something is included and how exactly. If I haven't explained it, it is because I am not actively using it, and is there for someone else's convenience. Or I haven't yet had the time to update this README.
+- I dislike scattered configs, but that's sometimes inescapable. That's why where relevant I have added docstrings to explain to modules, detailing where related configuration can be found.
+- I'm using **poetry** for virtual environment and dependency management.
 
-### Virtual Environments and Dependency Management
+You can freely delete anything that isn't needed in your project. That would mostly be the files in `/config/settings/`.
 
-#### Using `Poetry`
+Detailed explanation follows.
+
+## Virtual Environments and Dependency Management
+
+### Using `Poetry`
 
 This project uses **[poetry](https://python-poetry.org/docs/basic-usage/)** for its venv and dependency management through a [pyproject.toml](https://python-poetry.org/docs/pyproject/) file in the root directory. It handles everything in one place, provides a `.lock` file and is generally much nicer to use. Some people have reported issues in having it play nice with `Docker`. It simply requires a bit of configuration. Read more [here](https://gist.github.com/soof-golan/6ebb97a792ccd87816c0bda1e6e8b8c2) and [here](https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0). You can also [watch this](https://www.youtube.com/watch?v=hXYFS2pOEH8).
 
@@ -52,7 +58,7 @@ poetry install --without dev  # list all other dependency groups to exclude
 poetry install --only main  # an alternative to the previous command
 ```
 
-#### Using `venv` and `pip`
+### Using `venv` and `pip`
 
 **NOTE:** You can use `poetry export` to export the requirements.txt file. So I strongly advise you to install **poetry** at least for that, as well as the **poetry-plugin-export**. Installation is system dependent, so I can't guide you here, but it can save a lot of work.
 
@@ -79,15 +85,25 @@ poetry export -f requirements.txt --output ./requirements/local.txt --without-ha
 pip install -r ./requirements/local.txt
 ```
 
-### settings.py
+## General Configuration
 
-This module does not exist. Instead, this configuration is now found completely at **/config/django/base.py**, which is extended by **production.py**, and **test.py** in the same directory. It has been correctly configured in **manage.py** for local development.
+Configuration is split between `config`, `config.django`, and `config.settings`.
 
-I have specifically improved the layout with clear separation between the different configuration blocks. Before that they were only a single commented line, very hard to scan.
+The most notable thing in `/config/` is `env.py`. It is for loading environment variables, and also includes a couple of shared resources (common both to `config.django` and `config.settings`).
 
-Configuration blocks can be further split into modules (e.g. dj-database.py, dj-static.py, dj-drf.py, etc.). There is a slight overhead, but shouldn't be that noticeable. If your base config grows large, consider splitting. In fact, I prefer it split, but having a large number of files is also often a problem, so I've kept the config in **base.py**. I strongly advice you to make comments noticeable in your IDE, as some themes deliberately make them almost fade into the background.
+`config.django` holds only Django-specific settings (ref. [Where is `settings.py`?](#where-is-settingspy)).
 
-#### Example
+`config.settings` holds most non-Django third-party package configuration.
+
+## Where is `settings.py`?
+
+This module does not exist. Instead, the configuration is now found at `config.django.base`, which is extended by `config.django.production`, and `config.django.test` in the same directory. It has been correctly configured in `manage.py` for local development.
+
+I have additionally improved the layout with clear separation between the different configuration blocks. Before that they were only a single commented line, very hard to scan. I strongly advice you to make comments noticeable in your IDE, as some themes deliberately make them almost fade into the background.
+
+Configuration blocks can be further split into modules (e.g. dj-database.py, dj-static.py, dj-drf.py, etc.). If your base config grows large, consider splitting.
+
+**Example Config Block Comment**
 
 ```python
 ########################################################################################
@@ -99,11 +115,17 @@ Configuration blocks can be further split into modules (e.g. dj-database.py, dj-
 ########################################################################################
 ```
 
-### /config/settings/
+## Non-Django Configuration
 
-All third-party integrations are handled through their respective modules in **/config/settings/**. Then they are imported at the end of **/config/django/base.py**, where there are third-party settings and configuration.
+All third-party integrations are handled through their respective modules in `config.settings`. Then they are imported at the end of `config.django.base`.
 
-**IMPORTANT:** All third-party configuration imports are currently commented.
+**IMPORTANT:** Most third-party configuration imports are commented. Don't forget to uncomment them if you are going to use them.
+
+**Currently Configured Modules:**
+
+- CORS (with django-cors-headers)
+
+## Django Configuration
 
 ### Django REST Framework
 
@@ -125,7 +147,7 @@ HackSoft's approach defines the business-specific exceptions in a **core** app. 
 
 ---
 
-## Personal Style Guide
+# Personal Style Guide
 
 I will use this starter setup to also talk a little bit about the HackSoft's style guide mentioned above. I will mainly comment on things I have a different philosophy on. Keep in mind that if you are torn between my approach and theirs, default to theirs. Compared to them, my experience is miniscule.
 
@@ -133,7 +155,7 @@ That being said, if you are not the one deciding the style for your team (like m
 
 Anyway, consider everything below **a tangent** to the starter setup. It isn't needed to get coding.
 
-### Services vs Fat Models
+## Services vs Fat Models
 
 If you've been in the Django world for a while, you may be familiar with the clash between HackSoft's proposed service layer, and James Bennett's fat models. Read his opinion [here](https://www.b-list.org/weblog/2020/mar/16/no-service/) and [here](https://www.b-list.org/weblog/2020/mar/23/still-no-service/).
 
@@ -145,7 +167,7 @@ I also really dislike the argument that "service functions with cross-cutting co
 
 That being said, I consider ORM objects to actually be public API, and only use services when there are indeed cross-cutting concerns. I'm still torn on whether or not maintaining the access uniformity principle is worth it here. We will see.
 
-### GenericAPIView and subclasses
+## GenericAPIView and subclasses
 
 HackSoft is generally against generic API classes, because they handle a lot of things through serializers, and maybe a bit of magic. I largely agree, but I think they are fine for read-only APIs.
 
@@ -153,13 +175,13 @@ It could be argued that maintaining two different approaches for read and write 
 
 Furthermore, using generic classes gives you more convenient pagination options, and you still know what is going on under the hood. Even HackSoft specifies that the base GenericAPIView is fine. Perhaps a **ReadOnlyModelViewSet** is going too far, perhaps not. The only "drawback" I see is that it requires a router.
 
-### Filtering
+## Filtering
 
 This follows from the previous point. HackSoft argue that filtering should be done on selectors. This seems perfectly reasonable at first, until you realize those selectors are often nothing more than a pass-through abstraction over managers and querysets.
 
 If we have very complex filtering requirements, then sure, by all means, write a selector and add filter kwargs to it. But let automatic filtering happen on the API.
 
-#### My reasoning
+### My reasoning
 
 1. Automatic API filtering is by definition simple. It doesn't require a lot of setup, aside from configuring the **filter_backends** property and related fields.
 2. You are rather configuring, not writing query code, so no API-to-backend communication convention is being broken.
@@ -173,7 +195,7 @@ So for the price of not having uniform service-layer access for every single mod
 
 I am adapting this argument from [James Bennett's article on properties](https://www.b-list.org/weblog/2023/dec/21/dont-use-python-property/). Writing a property for the sake of aesthetics hides information that should better be obvious. Here hiding filtering behind a "uniform" notation also seems to withhold information that should better be apparent.
 
-#### But testability is better with a selector layer!
+### But testability is better with a selector layer!
 
 This alone was almost enough to sway me towards having selectors. However, after some consideration with tests, I realized this is actually a moot point for many selectors.
 
@@ -189,7 +211,7 @@ Of course, for a selector that does complex filtering, we have to test it separa
 
 All in all, simple selectors shouldn't exist, as the API test will cover the filtering. When complex selectors do exist, we need an additional test, and we still **should not** skip the API one. "But this is integration testing!", I hear you say. Call it whatever. It's what's valuable here.
 
-#### But what if we need complex filtering in the future?
+### But what if we need complex filtering in the future?
 
 Then refactor. It's not a big deal. You have the API test to cover for that, and if it isn't sufficient, it only means that you need to rework the API anyway. Or you've written a bad test.
 
