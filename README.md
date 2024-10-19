@@ -4,42 +4,42 @@ A Django starter setup for quick project configuration. Inspired by [HackSoft's 
 
 For initial information on the style, check [HackSoft's Django Styleguide](https://github.com/HackSoftware/Django-Styleguide).
 
-## Summary of My Changes (tl;dr)
+## The Short Version
 
-- I've added more explanations wherever I think was relevant, including in this guide. HackSoft assume a basic knowledge of Django and Python packages. I try not to assume that, so I explain why something is included and how exactly. If I haven't explained it, it is because I am not actively using it, and is there for someone else's convenience. Or I haven't yet had the time to update this README.
-- I dislike scattered configs, but that's sometimes inescapable. That's why where relevant I have added docstrings to explain to modules, detailing where related configuration can be found.
-- I'm using **poetry** for virtual environment and dependency management.
+I've made some changes to HackSoft's "cookie-cutter" project above. Below is the summary. At some point I'd like to create my own [cookie-cutter](https://github.com/cookiecutter/cookiecutter-django) properly, this one is basically a manual implementation of that.
 
-You can freely delete anything that isn't needed in your project. That would mostly be the files in `/config/settings/`.
+### More explanation
 
-Detailed explanation follows.
+HackSoft's guide is targeted towards people with at least basic knowledge of Django and Python packages. I try not to assume that, so I explain why something is included and how exactly. If you don't see an explanation, that's because I am not actively using a package, and it's there for someone else's convenience. Or I haven't yet had the time to update this README.
+
+### More in-project documentation
+
+Some configs require touching multiple files, which makes it challenging to track them. Wherever relevant I have added docstrings, detailing where related configuration can be found.
+
+### Introduced `poetry`
+
+I'm using **poetry** for virtual environment and dependency management. If you are not familiar with the tool, check [Virtual Environments and Dependency Management](#virtual-environments-and-dependency-management).
+
+### Modularity
+
+I've tried to comment out any dependency that may not be needed in a project. I've only assumed the following things as core:
+
+- Django
+- Django REST Framework
+- pytest
+- CORS configured out of the box
+
+You can freely delete anything else that isn't needed in your project. That would mostly be the files in `/config/settings/`. Check [Non-Django Configuration](#non-django-configuration) for more information.
 
 ## Virtual Environments and Dependency Management
 
 ### Using `Poetry`
 
-This project uses **[poetry](https://python-poetry.org/docs/basic-usage/)** for its venv and dependency management through a [pyproject.toml](https://python-poetry.org/docs/pyproject/) file in the root directory. It handles everything in one place, provides a `.lock` file and is generally much nicer to use. Some people have reported issues in having it play nice with `Docker`. It simply requires a bit of configuration. Read more [here](https://gist.github.com/soof-golan/6ebb97a792ccd87816c0bda1e6e8b8c2) and [here](https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0). You can also [watch this](https://www.youtube.com/watch?v=hXYFS2pOEH8).
+This project uses **[poetry](https://python-poetry.org/docs/basic-usage/)** for its venv and dependency management through a [pyproject.toml](https://python-poetry.org/docs/pyproject/) file in the root directory. It handles everything in one place, provides a `.lock` file and is generally much nicer to use. Some people have reported issues using it with `Docker`, but it simply requires a bit of configuration. Read more [here](https://gist.github.com/soof-golan/6ebb97a792ccd87816c0bda1e6e8b8c2) and [here](https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0). You can also [watch this](https://www.youtube.com/watch?v=hXYFS2pOEH8).
 
-Install **poetry** globally (no guide, as it depends on your OS).
+[Install **poetry**](https://python-poetry.org/docs/#installation) according to your system's needs. You can install it in a separate venv, or globally. I prefer using `pipx`, but that is a separate tool that also has to be installed, if you don't have it.
 
-I've configured it in [dependency management mode](https://python-poetry.org/docs/basic-usage/#operating-modes) (it defaults to package management). Package management mode requires a directory with the same name as the package, but `-` is replaced with `_`. There are three general approaches when using **Django**:
-
-1. Rename the `apps` directory to `my_poetry_project` (not recommended, will break the world).
-2. Rename the `config` directory to `my_poetry_project` (the most painless). Don't forget to update manage.py (i.e. config.django.base > my_project.django.base).
-3. Create a `my_poetry_project` directory, and only put an `__init__.py` file in.
-4. Create a `my_poetry_project` directory, and put everything Django-related in it. Beware though, as this will break paths and you will have to set them manually. For example, in `/config/django/base.py` you will have to add a `.parent` to `BASE_URL`.
-
-I lean towards the 2nd option, but all of them will require more distribution configuration, when you are ready to use **poetry** to package the code. Only the 4th option wouldn't really need that.
-
-```toml
-[tool.poetry]
-name = ""  # ex. "my-project", requires dir "/my_project", if package-mode = true.
-version = "0.1.0"
-description = ""
-authors = ["John Doe <john.doe@example.com>"]
-readme = "README.md"
-package-mode = false  # set to true to enable package mode
-```
+By default `poetry` operates in [package management mode](https://python-poetry.org/docs/basic-usage/#operating-modes) and expects a directory with the package name (defined in `pyproject.toml`), but `-` (dash) is replaced with `_` (underscore). This default expectation can be changed, if we explicitly specify `tool.poetry.packages`. Read more about it [here](https://python-poetry.org/docs/pyproject/#packages). Currently, the `config` and `apps` packages have to be specified in a `packages` array.
 
 **Basic usage**
 

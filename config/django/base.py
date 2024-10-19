@@ -1,10 +1,6 @@
-from pathlib import Path
-
-from config.env import env
+from config.env import BASE_DIR, env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).parent.parent.parent
-APPS_DIR = BASE_DIR / "apps"
 
 env.read_env(BASE_DIR / ".env")
 
@@ -18,10 +14,21 @@ SECRET_KEY = env.str("SECRET_KEY")
 #
 ########################################################################################
 
+
+LOCAL_APP_DIR_PREFIX = "apps."
+
 LOCAL_APPS = [
-    "apps.common",
-    "apps.users",
+    # ================================ IMPORTANT !!!! ==================================
+    # List only the app names, not their dotted path.
+    # For example, don't do "my_apps_directory.my_app", instead simply list "my_app".
+    # ==================================================================================
+    "api",
+    "common",
+    "users",
 ]
+
+LOCAL_APPS = [LOCAL_APP_DIR_PREFIX + app for app in LOCAL_APPS]
+
 
 THIRD_PARTY_APPS = [
     "corsheaders",
@@ -158,9 +165,7 @@ USE_TZ = True
 ########################################################################################
 
 STATIC_URL = "static/"
-
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATIC_URL = "/static/"
 # STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
