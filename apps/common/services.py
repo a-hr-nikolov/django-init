@@ -1,18 +1,18 @@
-from typing import Any, TypeVar
+from typing import Any
 
 from django.db import models
 from django.utils import timezone
 
-T = TypeVar("T", bound=models.Model)
+from .types import DjangoModelType
 
 
 def model_update(
     *,
-    instance: T,
+    instance: DjangoModelType,
     fields: list[str],
     data: dict[str, Any],
     auto_updated_at=True,
-) -> tuple[T, bool]:
+) -> tuple[DjangoModelType, bool]:
     """
     Generic update service meant to be reused in local update services.
 
