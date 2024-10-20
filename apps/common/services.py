@@ -1,16 +1,18 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, TypeVar
 
 from django.db import models
 from django.utils import timezone
 
+T = TypeVar("T", bound=models.Model)
+
 
 def model_update(
     *,
-    instance: models.Model,
-    fields: List[str],
-    data: Dict[str, Any],
+    instance: T,
+    fields: list[str],
+    data: dict[str, Any],
     auto_updated_at=True,
-) -> Tuple[models.Model, bool]:
+) -> tuple[T, bool]:
     """
     Generic update service meant to be reused in local update services.
 
@@ -20,21 +22,21 @@ def model_update(
         fields = ['first_name', 'last_name']
         user, has_updated = model_update(instance=user, fields=fields, data=data)
 
-        // Do other actions with the user here
+        do_some_other_action(user)
 
         return user
 
-    Return value: Tuple with the following elements:
+    Return:
+        Tuple with the following elements:
         1. The instance we updated.
         2. A boolean value representing whether we performed an update or not.
 
     Some important notes:
-
         - Only keys present in `fields` will be taken from `data`.
         - If something is present in `fields` but not present in `data`, we simply skip.
         - There's a strict assertion that all values in `fields` are actual fields in `instance`.
         - `fields` can support m2m fields, which are handled after the update on `instance`.
-        - If `auto_updated_at` is True, we'll try bumping `updated_at` with the current timestmap.
+        - If `auto_updated_at` is True, we'll try bumping `updated_at` with the current timestamp.
     """
     has_updated = False
     m2m_data = {}

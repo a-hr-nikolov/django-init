@@ -16,18 +16,24 @@ HackSoft's guide is targeted towards people with at least basic knowledge of Dja
 
 Some configs require touching multiple files, which makes it challenging to track them. Wherever relevant I have added docstrings, detailing where related configuration can be found.
 
+### Type annotation updates
+
+Certain places did not have type annotations or they were of older styles, which may be fine, but I don't like how it plays with the IDE and additional imports. So I've added or improved type annotations wherever relevant.
+
 ### Introduced `poetry`
 
 I'm using **poetry** for virtual environment and dependency management. If you are not familiar with the tool, check [Virtual Environments and Dependency Management](#virtual-environments-and-dependency-management).
 
 ### Modularity
 
-I've tried to comment out any dependency that may not be needed in a project. I've only assumed the following things as core:
+I've tried to comment out any dependency that may not be needed in a project. That way any third-party integration is opt-in, rather than opt-out.
 
-- Django
+I've decided to configure the following things:
+
 - Django REST Framework
-- pytest
+- pytest (and pytest-django)
 - CORS configured out of the box
+- mypy configured out of the box (for basic usage)
 
 You can freely delete anything else that isn't needed in your project. That would mostly be the files in `/config/settings/`. Check [Non-Django Configuration](#non-django-configuration) for more information.
 
@@ -149,70 +155,55 @@ HackSoft's approach defines the business-specific exceptions in a **core** app. 
 
 # Personal Style Guide
 
-I will use this starter setup to also talk a little bit about the HackSoft's style guide mentioned above. I will mainly comment on things I have a different philosophy on. Keep in mind that if you are torn between my approach and theirs, default to theirs. Compared to them, my experience is miniscule.
-
-That being said, if you are not the one deciding the style for your team (like me, for example), it doesn't really matter. I am perfectly fine working with any convention, as long as there actually is one. This here is for playground projects mostly. And while some would argue that we shouldn't worry about the structure and architecture of pet projects, I feel like developing a feel for proper structure can only happen if you focus on it. Yes, even on pet projects.
-
-Anyway, consider everything below **a tangent** to the starter setup. It isn't needed to get coding.
-
 ## Services vs Fat Models
 
 If you've been in the Django world for a while, you may be familiar with the clash between HackSoft's proposed service layer, and James Bennett's fat models. Read his opinion [here](https://www.b-list.org/weblog/2020/mar/16/no-service/) and [here](https://www.b-list.org/weblog/2020/mar/23/still-no-service/).
 
 A lot of what is said makes sense, and you would think that a core Django developer would probably be right. Well... The thing is that other core Django developers (or DRF developers) have different opinions. Look for them if you want, but some are for service layers, others are for encapsulated fat models. Other folks also have [interesting takes](https://news.ycombinator.com/item?id=27607337).
 
-This is all to say that there isn't a consensus. In my view, the middle road is best, as you will see below. But technically speaking, I err on the side of services. James Bennett says that services basically create our project specific ORM. And... yes! That's actually the point. The difference is that our ORM is safe and encapsulated, and you will find it harder to shoot yourself in the foot.
+Technically speaking, I err on the side of services, though using the model layer directly for READ-ONLY operations is fine to me in many situations. James Bennett says that services basically create our project specific ORM. I agree, but that's actually the point. However, our ORM is simple, uniform, intuitive... and safe.
 
-I also really dislike the argument that "service functions with cross-cutting concerns are doing too much, if they are necessary". It smells like "clean code" bs. Yes, the service functions are doing a lot. They are creating an instance of this and that, sending a message, queuing a task, and saving the object. Is this too much? Yeah. Can it be solved reasonably? Not really, unless you really go hard with signals. But that's a bad pattern in and of itself, so you better implement a pub-sub system -- maybe RabbitMQ -- and then deal with a bit more latency, more maintenance overhead, etc., etc. Just let functions do a lot, man. Sometimes they have to.
+For example, accessing a model's .save() method, or updating fields directly on a model instance should be a no-go in a view. But... Django doesn't stop that. I can argue it encourages it by having validation and creation logic handled via forms (and serializers).
 
-That being said, I consider ORM objects to actually be public API, and only use services when there are indeed cross-cutting concerns. I'm still torn on whether or not maintaining the access uniformity principle is worth it here. We will see.
+So what do we end up doing? I've read recommendations that creation and updating should only be done via specific manager and model methods, never by directly assigning model fields, or using the model constructor. So, you are telling me that... we are writing a service method, instead of a service function? Who cares whether you call `User.objects.create()` vs `user_create()`, or `user_instance.update(...)` vs `user_update(...)`? In fact, the service approach has many benefits - it allows for cross-cutting concerns within the function, it provides better IDE autocomplete, and it is a layer of safety so that you don't go thinking "I will do this here just once, and maybe fix it later".
 
-## GenericAPIView and subclasses
+I also really dislike the argument that "service function with cross-cutting concerns are doing too much". Yes, and? Stop the "clean code" worshipping, and start being pragmatic. Yes, the functions may be creating an instance of this and that, sending a message, queuing a task, and saving the object. Is this too much? Yeah. Can it be solved reasonably? Not really, unless you want to really complicate your system. Sometimes that is necessary. Often it isn't. Just let functions do a lot, when they need to, and it is clear what is going on. Stop following rules for the sake of following rules.
 
-HackSoft is generally against generic API classes, because they handle a lot of things through serializers, and maybe a bit of magic. I largely agree, but I think they are fine for read-only APIs.
+## Selectors, GenericAPIView, and who should be filtering stuff?
 
-It could be argued that maintaining two different approaches for read and write APIs is a bad convention. Fair enough. If it confuses you, ditch it. However, I believe it can actually reinforce the idea that READ and WRITE are fundamentally different operations and require a different approach.
+Aside from services, HackSoft also introduced the idea of selectors (or query services). I am not entirely sure how I feel about them, as often they are simply a pass-through to QuerySets and Managers. But then... they are a way to follow the uniform access principle.
 
-Furthermore, using generic classes gives you more convenient pagination options, and you still know what is going on under the hood. Even HackSoft specifies that the base GenericAPIView is fine. Perhaps a **ReadOnlyModelViewSet** is going too far, perhaps not. The only "drawback" I see is that it requires a router.
+The problem comes when we decide what to do about filtering. There are two approaches - handle it in the selectors, or handle it in the API. The latter is especially convenient if you use generic API classes. Is this an issue though?
 
-## Filtering
+HackSoft is generally against generic API classes, because they handle a lot of things through serializers, and maybe a bit of magic. I largely agree for WRITE APIs, but I think they are _mostly_ fine for read-only APIs. It could be argued that maintaining two different approaches for READ and WRITE APIs is a bad convention. However, I believe it can actually reinforce the idea that READ and WRITE are fundamentally different operations that do not benefit from uniform approaches.
 
-This follows from the previous point. HackSoft argue that filtering should be done on selectors. This seems perfectly reasonable at first, until you realize those selectors are often nothing more than a pass-through abstraction over managers and querysets.
+Furthermore, using generic classes give you more convenient pagination options, and you still know what is going on under the hood. Even HackSoft specifies that the base GenericAPIView is fine. I'd go as far as saying that **ReadOnlyModelViewSet** is fine too.
 
-If we have very complex filtering requirements, then sure, by all means, write a selector and add filter kwargs to it. But let automatic filtering happen on the API.
+Back to selectors and filtering - what should we do with them? I say let the generic API handle it through automatic filtering. If it makes you feel better, use a pass-through selector in the `get_queryset` method, instead of directly operating with the QuerySet.
 
 ### My reasoning
 
 1. Automatic API filtering is by definition simple. It doesn't require a lot of setup, aside from configuring the **filter_backends** property and related fields.
 2. You are rather configuring, not writing query code, so no API-to-backend communication convention is being broken.
-3. If the setup seems finicky, it means more complex filtering is needed. No need to fight generic API view, instead just resort to writing the selector service.
+3. If the setup seems finicky, it means more complex filtering is needed. No need to fight the generic API view, instead use a selector.
 4. Following from the above, we can infer the following:
    - Selectors should exist as a part of the **service layer**, so their API is available (and discoverable) in the IDE.
    - If they exist for a certain model, that means filtering is more complex for said model. If they don't exist, we can assume filtering is simple.
    - A new person will more quickly realize which APIs are tied to more complex backend interactions, and which - to simpler ones.
 
-So for the price of not having uniform service-layer access for every single model, we get the benefits of understanding the complexity of an API backend, without having to look at it specifically.
+So for the price of not having uniform filtering logic on every single API (though it would be the uniform for most), we get the benefits of understanding the complexity of an API backend, without having to look at it specifically.
 
-I am adapting this argument from [James Bennett's article on properties](https://www.b-list.org/weblog/2023/dec/21/dont-use-python-property/). Writing a property for the sake of aesthetics hides information that should better be obvious. Here hiding filtering behind a "uniform" notation also seems to withhold information that should better be apparent.
+I am adapting this argument from [James Bennett's article on properties](https://www.b-list.org/weblog/2023/dec/21/dont-use-python-property/). In our Django project hiding the filtering for the sake of uniformity may actually be withholding information that should rather be obvious.
 
 ### But testability is better with a selector layer!
 
-This alone was almost enough to sway me towards having selectors. However, after some consideration with tests, I realized this is actually a moot point for many selectors.
+Fair enough. But what will we be testing? If a selector only exists for uniformity reasons, tests just make sure that we are not screwing up the passthrough. This is still important, and a good safety net in case we need to complicate the filtering later. However, it doesn't really prove we're correctly configuring the API to use the filtering.
 
-See, what we are really doing within simple selectors is... passing everything to a queryset, really. Maybe using a django-filter. So what will we be testing? That we correctly configured a pass-through abstraction? Since it only exists for uniformity reasons, tests just make sure that we are not screwing up, not that we are writing a valuable piece of code.
+At the end of the day, there has to be an integration test, which checks whether an API call gets the expected results. We may have written the perfect filter, but if we are not correctly configuring the API, it wouldn't matter.
 
-In other words, not only is the selector pointless, but now we have to write tests for it just in case. That all means a pointless selector requires more code than it looks at first glance, without providing any utility.
+This gives us 2 options:
 
-But I hear you. It doesn't feel right to not test the filtering logic. However, what is it that we really need to test? Is it not that the API actually passes the correct parameters and gets the expected results? This is why the selector exists, right? I don't see any way around that.
+1. Write a selector, write tests for it, and always use it (for uniformity reasons). Write API integration tests nevertheless.
+2. Postpone writing the selector, until it is needed. Write API integration tests nevertheless.
 
-Ultimately, we have to test the API. We may have written the perfect filter, but if we are not correctly configuring the API, it wouldn't matter. On the other hand, if we are testing the API, why not simply have the selection logic there? Since filtering on the API is by configuration, we can simply test whether the API returns what's expected.
-
-Of course, for a selector that does complex filtering, we have to test it separately, so we know our filtering logic works. But then we are truly testing what brings value, not a pass-through abstraction.
-
-All in all, simple selectors shouldn't exist, as the API test will cover the filtering. When complex selectors do exist, we need an additional test, and we still **should not** skip the API one. "But this is integration testing!", I hear you say. Call it whatever. It's what's valuable here.
-
-### But what if we need complex filtering in the future?
-
-Then refactor. It's not a big deal. You have the API test to cover for that, and if it isn't sufficient, it only means that you need to rework the API anyway. Or you've written a bad test.
-
-What this question really asks is "Why not optimize for potential requirements?" This, of course, is the root of all software evils - premature optimization. Don't code for requirements you don't have. If you keep your API code simple, refactoring for potential complex filtering requirements will not be a big deal.
+To me the second options seems preferable, as we won't be optimizing prematurely. But I also understand why someone would want the uniformity. Do what feels better.
