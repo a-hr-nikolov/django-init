@@ -82,6 +82,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 
 ########################################################################################
 #
@@ -118,11 +123,12 @@ DATABASES = {
 
 ########################################################################################
 #
-# PASSWORD VALIDATION
+# AUTH & PASSWORD VALIDATION
 #
 ########################################################################################
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 ########################################################################################
+AUTH_USER_MODEL = "users.BaseUser"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -167,11 +173,6 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 ########################################################################################
