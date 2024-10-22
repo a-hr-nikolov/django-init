@@ -3,16 +3,16 @@ from typing import Any
 from django.db import models
 from django.utils import timezone
 
-from .types import DjangoModelType
+# from .types import DjangoModelType
 
 
-def model_update(
+def model_update[T: models.Model](
     *,
-    instance: DjangoModelType,
+    instance: T,
     fields: list[str],
     data: dict[str, Any],
     auto_updated_at=True,
-) -> tuple[DjangoModelType, bool]:
+) -> tuple[T, bool]:
     """
     Generic update service meant to be reused in local update services.
 

@@ -8,12 +8,12 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 SECRET_KEY = env.str("SECRET_KEY")
 
+
 ########################################################################################
 #
 # APPLICATION DEFINITION & DJANGO-RELATED CONFIG
 #
 ########################################################################################
-
 
 LOCAL_APP_DIR_PREFIX = "apps."
 
@@ -55,7 +55,9 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     # "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # "django.middleware.cache.UpdateCacheMiddleware",
     "django.middleware.common.CommonMiddleware",
+    # "django.middleware.cache.FetchFromCacheMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -67,7 +69,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -83,7 +85,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
+# https://docs.djangoproject.com/en/stable/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -93,7 +95,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # DATABASE
 #
 ########################################################################################
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+# https://docs.djangoproject.com/en/stable/ref/settings/#databases
 ########################################################################################
 
 DATABASES = {
@@ -126,8 +128,9 @@ DATABASES = {
 # AUTH & PASSWORD VALIDATION
 #
 ########################################################################################
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
+# https://docs.djangoproject.com/en/stable/ref/settings/#auth-password-validators
 ########################################################################################
+
 AUTH_USER_MODEL = "users.BaseUser"
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -151,7 +154,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # INTERNATIONALIZATION
 #
 ########################################################################################
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
+# https://docs.djangoproject.com/en/stable/topics/i18n/
 ########################################################################################
 
 LANGUAGE_CODE = "en-us"
@@ -162,18 +165,74 @@ USE_I18N = True
 
 USE_TZ = True
 
+
 ########################################################################################
 #
 # STATIC FILES (CSS, JavaScript, Images)
 #
 ########################################################################################
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
+# https://docs.djangoproject.com/en/stable/howto/static-files/
 ########################################################################################
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+
+########################################################################################
+#
+# CACHE
+#
+########################################################################################
+# https://docs.djangoproject.com/en/stable/topics/cache/
+########################################################################################
+# OPTIONS: https://docs.djangoproject.com/en/stable/topics/cache/#cache-arguments
+# Per-site vs Per-view: https://docs.djangoproject.com/en/stable/topics/cache/#the-per-site-cache
+#
+#
+# In-Memory:
+#   Memcached: https://docs.djangoproject.com/en/stable/topics/cache/#memcached
+#   Redis: https://docs.djangoproject.com/en/stable/topics/cache/#redis
+#
+# Dev:
+#   LocMem: https://docs.djangoproject.com/en/stable/topics/cache/#local-memory-caching
+#   Dummy: https://docs.djangoproject.com/en/stable/topics/cache/#dummy-caching-for-development
+#
+# Disk:
+#   Database: https://docs.djangoproject.com/en/stable/topics/cache/#database-caching
+#   Filesystem: https://docs.djangoproject.com/en/stable/topics/cache/#filesystem-caching
+#
+# Custom:
+# https://docs.djangoproject.com/en/stable/topics/cache/#using-a-custom-cache-backend
+########################################################################################
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        # "LOCATION": "unique-snowflake",
+    }
+}
+
+# ==================================== MEMCACHED =======================================
+# CACHES = {
+#     "default": {
+#         "BACKEND": "django.core.cache.backends.memcached.PyMemcacheCache",
+#         # "BACKEND": django.core.cache.backends.memcached.PyLibMCCache,
+#         "LOCATION": "127.0.0.1:11211",
+#     }
+# }
+
+# ====================================== REDIS =========================================
+# CACHES = {
+#     "default": {
+#         "BACKEND": "django.core.cache.backends.redis.RedisCache",
+#         "LOCATION": "redis://username:password@127.0.0.1:6379",
+#     }
+# }
+
+# CACHE_MIDDLEWARE_ALIAS = "default"
+# CACHE_MIDDLEWARE_SECONDS = 600
+# CACHE_MIDDLEWARE_KEY_PREFIX = "my_website"
 
 ########################################################################################
 #
@@ -191,6 +250,7 @@ REST_FRAMEWORK = {
     ],
     # "DEFAULT_AUTHENTICATION_CLASSES": [],
 }
+
 
 ########################################################################################
 #
