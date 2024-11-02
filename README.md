@@ -20,9 +20,9 @@ Some configs require touching multiple files, which makes it challenging to trac
 
 Certain places did not have type annotations or they were of older styles, which may be fine, but I don't like how it plays with the IDE and additional imports. So I've added or improved type annotations wherever relevant.
 
-### Introduced `poetry`
+### Introduced `uv`
 
-I'm using **poetry** for virtual environment and dependency management. If you are not familiar with the tool, check [Virtual Environments and Dependency Management](#virtual-environments-and-dependency-management).
+I'm using **[uv](https://docs.astral.sh/uv/)** for virtual environment and dependency management. I believe this is the future for Python, and it is almost entirely `pip` and `pip-tools` compatible. It is also simply better than `poetry`, which this project utilized before `uv`. If you are not familiar with the tool, check [Virtual Environments and Dependency Management](#virtual-environments-and-dependency-management).
 
 ### Modularity
 
@@ -32,66 +32,22 @@ I've decided to configure the following things:
 
 - Django REST Framework
 - pytest (and pytest-django)
-- CORS configured out of the box
-- mypy configured out of the box (for basic usage)
+- CORS
+- mypy (for basic usage)
 
-You can freely delete anything else that isn't needed in your project. That would mostly be the files in `/config/settings/`. Check [Non-Django Configuration](#non-django-configuration) for more information.
+You can freely delete anything else that isn't needed in your project. That would mostly be the files in `config.settings`. Check [Non-Django Configuration](#non-django-configuration) for more information.
 
-## Virtual Environments and Dependency Management
+---
 
-### Using `Poetry`
+## The Long Version
 
-This project uses **[poetry](https://python-poetry.org/docs/basic-usage/)** for its venv and dependency management through a [pyproject.toml](https://python-poetry.org/docs/pyproject/) file in the root directory. It handles everything in one place, provides a `.lock` file and is generally much nicer to use. Some people have reported issues using it with `Docker`, but it simply requires a bit of configuration. Read more [here](https://gist.github.com/soof-golan/6ebb97a792ccd87816c0bda1e6e8b8c2) and [here](https://medium.com/@albertazzir/blazing-fast-python-docker-builds-with-poetry-a78a66f5aed0). You can also [watch this](https://www.youtube.com/watch?v=hXYFS2pOEH8).
+### Virtual Environments and Dependency Management
 
-[Install **poetry**](https://python-poetry.org/docs/#installation) according to your system's needs. You can install it in a separate venv, or globally. I prefer using `pipx`, but that is a separate tool that also has to be installed, if you don't have it.
+This project uses **[uv](https://docs.astral.sh/uv/getting-started/)** for its venv and dependency management through a `pyproject.toml` file in the root directory. It handles everything in one place, provides a `.lock` file and is generally much nicer to use than either `poetry` or regular `pip`. It is actually compatible with `pip`, and uses a standard `pyproject.toml` file, unlike `poetry`.
 
-By default `poetry` operates in [package management mode](https://python-poetry.org/docs/basic-usage/#operating-modes) and expects a directory with the package name (defined in `pyproject.toml`), but `-` (dash) is replaced with `_` (underscore). This default expectation can be changed, if we explicitly specify `tool.poetry.packages`. Read more about it [here](https://python-poetry.org/docs/pyproject/#packages). Currently, the `config` and `apps` packages have to be specified in a `packages` array.
+[Install `uv`](https://docs.astral.sh/uv/getting-started/installation/#installation-methods) according to your system's needs. I prefer using `pipx`, but that is a separate tool that also has to be installed, if you don't have it. Unlike Python-based tools, `uv` can work great as a global install, because it isn't actually Python-dependent. It can actually manage Python versions for you.
 
-**Basic usage**
-
-```bash
-poetry install  # installs the project, and is run after pyproject.toml changes
-poetry add <name-of-dependency>  # adds packages https://python-poetry.org/docs/cli/#add
-poetry add --group dev <dep>  # adds a dependency to a group named `dev`
-poetry remove <dependency>
-poetry update
-```
-
-**On the server**
-
-```bash
-poetry install --without dev  # list all other dependency groups to exclude
-poetry install --only main  # an alternative to the previous command
-```
-
-### Using `venv` and `pip`
-
-**NOTE:** You can use `poetry export` to export the requirements.txt file. So I strongly advise you to install **poetry** at least for that, as well as the **poetry-plugin-export**. Installation is system dependent, so I can't guide you here, but it can save a lot of work.
-
-You are free to use the vastly inferior setup with `venv` and `pip`, but you will have to create your own `requirements.txt` file, and place it somewhere. I recommend having a `/requirements/` directory with 2 files: `base.txt` and `local.txt`, which includes `-r base.txt` as its first line (as `pip` is going to run it as a script).
-
-```bash
-python -m venv <env-name, usually .venv>
-
-# Linux & Mac
-source venv/bin/activate
-
-# Windows
-venv\Scripts\activate
-
-# Using poetry to generate `requirements.txt`
-# The non-poetry commands below are for Linux. I don't know PowerShell, so Windows users
-# are on their own here.
-mkdir requirements
-poetry export -f requirements.txt --output ./requirements/base.txt --without-hashes --without dev
-poetry export -f requirements.txt --output ./requirements/local.txt --without-hashes --only dev
-(echo "-r base.txt" && cat ./requirements/local.txt) > temp_file && mv temp_file ./requirements/local.txt
-
-# Requirements install
-pip install -r ./requirements/local.txt
-```
-
-## General Configuration
+### General Configuration
 
 Configuration is split between `config`, `config.django`, and `config.settings`.
 
@@ -101,13 +57,13 @@ The most notable thing in `/config/` is `env.py`. It is for loading environment 
 
 `config.settings` holds most non-Django third-party package configuration.
 
-## Where is `settings.py`?
+#### Where is `settings.py`?
 
 This module does not exist. Instead, the configuration is now found at `config.django.base`, which is extended by `config.django.production`, and `config.django.test` in the same directory. It has been correctly configured in `manage.py` for local development.
 
-I have additionally improved the layout with clear separation between the different configuration blocks. Before that they were only a single commented line, very hard to scan. I strongly advice you to make comments noticeable in your IDE, as some themes deliberately make them almost fade into the background.
+I have additionally improved the layout with clear separation between the different configuration blocks. Before that they were only a single commented line, very hard to scan. Be sure to make comments noticeable in your IDE, as some themes configure them with very low contrast.
 
-Configuration blocks can be further split into modules (e.g. dj-database.py, dj-static.py, dj-drf.py, etc.). If your base config grows large, consider splitting.
+If your base config grows large, configuration blocks can be further split into modules (e.g. dj-database.py, dj-static.py, dj-drf.py, etc.).
 
 **Example Config Block Comment**
 
@@ -117,39 +73,33 @@ Configuration blocks can be further split into modules (e.g. dj-database.py, dj-
 # DATABASE
 #
 ########################################################################################
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+# https://docs.djangoproject.com/en/stable/ref/settings/#databases
 ########################################################################################
 ```
 
-## Non-Django Configuration
-
-All third-party integrations are handled through their respective modules in `config.settings`. Then they are imported at the end of `config.django.base`.
-
-**IMPORTANT:** Most third-party configuration imports are commented. Don't forget to uncomment them if you are going to use them.
-
-**Currently Configured Modules:**
-
-- CORS (with django-cors-headers)
-
-## Django Configuration
-
 ### Django REST Framework
 
-All files that have to do with DRF specific configuration and usage are in the **apps/api** directory. The **REST_FRAMEWORK** option is found in **config/django/base.py**.
+All files that have to do with DRF specific configuration and usage are in the **apps/api** directory. The `REST_FRAMEWORK` option is found in `config.django.base`.
 
-All API endpoints are located within their specific app directory. They **are not** placed within the apps/api directory. This is because we want an app to be self-contained as much as possible, without having to trace how the data flows through it by jumping between apps (at least not as much).
+All API endpoints are located within their specific app directory. They **are not** placed within the `apps/api` directory. This is because we want an app to be as self-contained as possible, without having to trace how the data flows through it by jumping between apps (at least not as much).
 
-Since DRF allows for a lot of configuration (auth, permissions, pagination, etc.), it is available on the **REST_FRAMEWORK** option with sensible defaults already set up. Alternatives may be commented, but not every alternative will be available.
+Since DRF allows for a lot of configuration (auth, permissions, pagination, etc.), the `REST_FRAMEWORK` option is configured with sensible defaults. Alternatives may be commented, but not every alternative will be available.
 
 #### Exceptions in DRF
 
-DRF is bad at handling validation exceptions, because its philosophy of validating through serializers clashes with the idea that actual model validation should happen on the model layer. [Serializer vs model validation ](https://github.com/encode/django-rest-framework/discussions/7850)is an old problem with DRF, that will probably never be resolved.
+DRF has an issue. Its philosophy of validating through serializers clashes with the idea that validation should happen on the model layer. This [serializer vs model validation](https://github.com/encode/django-rest-framework/discussions/7850) problem will likely never get solved... by DRF. But we can do it ourselves!
 
-The gist of it is that DRF uses its own ValidationError, which doesn't map to Django's ValidationError. On top of that, DRF isn't uniform it how it handles its own validation messages. HackSoft has an interesting proposal, but if doesn't suit you, you can use the simpler exception handler in **apps/api/exception_handler.py**. It maps Django exceptions to DRF exceptions to promote model-level validation.
+The gist of it is that DRF uses its own `ValidationError`, which doesn't map to Django's `ValidationError`. On top of that, DRF isn't uniform it how it handles its own validation messages. HackSoft has an interesting proposal, but if doesn't suit you, you can use the simpler exception handler in `apps.api.exception_handler`. It maps Django exceptions to DRF exceptions to promote model-level validation.
 
-HackSoft's approach defines the business-specific exceptions in a **core** app. In this project, I've opted to place them in a **common** app. It doesn't really matter, I just don't like **core** as to me it signals logic that is core to the project, but in reality, it isn't really core, just common.
+My advice is to use HackSoft's error handling suggestion, as it provides a really nice and uniform error messaging. Just make sure that whatever custom errors you define all inherit from `ApplicationError` as defined in `common.exceptions`.
 
-**General Advice**: Use HackSoft's suggestion, as it provides a really nice and uniform error messaging. Just make sure that whatever custom errors you define all inherit from ApplicationError.
+**NOTE:** HackSoft's approach defines the business-specific exceptions in `core.exceptions`. I've opted to place them in the `common` app.
+
+### Non-Django Configuration
+
+All third-party integrations are handled through their respective modules in `config.settings`. Then they are imported at the end of `config.django.base`.
+
+**IMPORTANT:** Most third-party configuration imports are commented out. Don't forget to uncomment them if you are going to use them.
 
 ---
 

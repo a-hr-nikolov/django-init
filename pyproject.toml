@@ -1,50 +1,31 @@
-# ======================================================================================
-# POETRY 
-# ======================================================================================
-[tool.poetry]
-name = "my-project"
+[project]
+name = "django-init"
 version = "0.1.0"
-description = ""
-authors = ["John Doe <john.doe@example.com>"]
+description = "A personalized cookiecutter-like Django scaffold"
 readme = "README.md"
-packages = [{ include = "config" }, { include = "apps" }]
+requires-python = ">=3.12"
+authors = [{ name = "John Doe", email = "john.doe@example.com" }]
+maintainers = [{ name = "John Doe", email = "john.doe@example.com" }]
 
 
-[tool.poetry.dependencies]
-python = "^3.12"
-Django = "^5.1.2"
-djangorestframework = "^3.15.2"
-django-filter = "^24.3"
-django-environ = "^0.11.2"
-django-cors-headers = "^4.5.0"
+dependencies = [
+  "django-cors-headers>=4.6.0",
+  "django-environ>=0.11.2",
+  "django-filter>=24.3",
+  "django>=5.1.2",
+  "djangorestframework>=3.15.2",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest-django = "^4.9.0"
-ruff = "^0.7.1"
-mypy = "^1.13.0"
-django-stubs = { extras = ["compatible-mypy"], version = "^5.1.1" }
-factory-boy = "^3.3.1"
-faker = "^30.8.2"
-
-
-[tool.poetry.scripts]
-# add scripts here
-
-# ======================================================================================
-# PYTEST 
-# ======================================================================================
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.django.test"
-addopts = ["--import-mode=importlib"]
-python_files = ["tests.py", "test_*.py", "*_tests.py"]
-
-
-# ======================================================================================
-# BUILD 
-# ======================================================================================
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+dev = [
+  "factory-boy>=3.3.1",
+  "faker>=30.8.2",
+  "mypy>=1.13.0",
+  "pytest>=8.3.3",
+  "pytest-django>=4.9.0",
+  "ruff>=0.7.2",
+  "django-stubs[compatible-mypy]>=5.1.1",
+]
 
 
 # ======================================================================================
@@ -75,6 +56,15 @@ module = [
   "debug_toolbar.*",
 ]
 ignore_missing_imports = true
+
+# ======================================================================================
+# PYTEST 
+# ======================================================================================
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.django.test"
+addopts = ["--import-mode=importlib"]
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+
 
 # ======================================================================================
 # RUFF 
