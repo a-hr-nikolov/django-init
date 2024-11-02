@@ -234,6 +234,50 @@ CACHES = {
 # CACHE_MIDDLEWARE_SECONDS = 600
 # CACHE_MIDDLEWARE_KEY_PREFIX = "my_website"
 
+
+########################################################################################
+#
+# LOGGING
+#
+########################################################################################
+# https://docs.djangoproject.com/en/stable/topics/logging/
+########################################################################################
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "filters": {
+        "require_debug_true": {
+            "()": "django.utils.log.RequireDebugTrue",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "filters": ["require_debug_true"],
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        "mail_admins": {
+            "level": "ERROR",
+            "class": "django.utils.log.AdminEmailHandler",
+        },
+    },
+    "loggers": {
+        "root": {"handlers": ["console", "mail_admins"]},
+    },
+}
+
+
 ########################################################################################
 #
 # REST FRAMEWORK
