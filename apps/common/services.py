@@ -11,7 +11,7 @@ def model_update[T: models.Model](
     instance: T,
     fields: list[str],
     data: dict[str, Any],
-    auto_updated_at=True,
+    auto_updated_at: bool = True,
 ) -> tuple[T, bool]:
     """
     Generic update service meant to be reused in local update services.
@@ -39,8 +39,8 @@ def model_update[T: models.Model](
         - If `auto_updated_at` is True, we'll try bumping `updated_at` with the current timestamp.
     """
     has_updated = False
-    m2m_data = {}
-    update_fields = []
+    m2m_data: dict[str, Any] = {}
+    update_fields: list[str] = []
 
     model_fields = {field.name: field for field in instance._meta.get_fields()}
 
