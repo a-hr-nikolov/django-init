@@ -62,7 +62,7 @@ ignore_missing_imports = true
 # ======================================================================================
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.django.test"
-addopts = ["--import-mode=importlib"]
+addopts = ["--import-mode=importlib", "--reuse-db"]
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
 
 
