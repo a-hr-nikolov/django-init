@@ -10,6 +10,9 @@ from apps.common.models import BaseModel
 # https://docs.djangoproject.com/en/stable/topics/auth/customizing/#a-full-example
 # With some modifications
 
+# Also take a look at:
+# https://simpleisbetterthancomplex.com/article/2021/07/08/what-you-should-know-about-the-django-user-model.html
+
 
 class BaseUserManager(BUM):
     def create_user(
@@ -61,6 +64,20 @@ class BaseUser(BaseModel, AbstractBaseUser, PermissionsMixin):
     # This should potentially be an encrypted field
     jwt_key = models.UUIDField(default=uuid.uuid4)
 
+    # ==================================================================================
+    #
+    # PROFILE FIELDS
+    #
+    # ==================================================================================
+    # This can potentially be extracted into a UserProfile model with a OneToOneField.
+    # ==================================================================================
+    # first_name = models.CharField(max_length=255, null=True, blank=True)
+    # last_name = models.CharField(max_length=255, null=True, blank=True)
+    # ...
+
+    # ==================================================================================
+    # MODEL CONFIG
+    # ==================================================================================
     objects: BaseUserManager = BaseUserManager()
 
     USERNAME_FIELD = "email"
