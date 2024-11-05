@@ -1,15 +1,19 @@
-from typing import Any
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
 
 from django.db import models
 from django.utils import timezone
 
+if TYPE_CHECKING:
+    from apps.common.models import BaseModel
+
 # from .types import DjangoModelType
 
 
-def model_update[T: models.Model](
+def model_update[T: BaseModel](
     *,
     instance: T,
-    fields: list[str],
+    fields: Iterable[str],
     data: dict[str, Any],
     auto_updated_at: bool = True,
 ) -> tuple[T, bool]:
@@ -74,7 +78,7 @@ def model_update[T: models.Model](
             # And if no value for updated_at has been provided
             if "updated_at" in model_fields and "updated_at" not in update_fields:
                 update_fields.append("updated_at")
-                instance.updated_at = timezone.now()  # type: ignore
+                instance.updated_at = timezone.now()
 
         instance.full_clean()
         # Update only the fields that are meant to be updated.

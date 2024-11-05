@@ -14,18 +14,16 @@ from apps.common.models import BaseModel
 # https://simpleisbetterthancomplex.com/article/2021/07/08/what-you-should-know-about-the-django-user-model.html
 
 
-class BaseUserManager(BUM):
-    def create_user(
-        self, email, is_active=True, is_admin=False, password=None
-    ) -> "BaseUser":
+class BaseUserManager[T: "BaseUser"](BUM):
+    def create_user(self, email, is_active=True, is_admin=False, password=None) -> T:
         if not email:
             raise ValueError("Users must have an email address")
 
-        user: "BaseUser" = self.model(
+        user: T = self.model(
             email=self.normalize_email(email.lower()),
             is_active=is_active,
             is_admin=is_admin,
-        )  # type: ignore
+        )
 
         if password is not None:
             user.set_password(password)
@@ -37,7 +35,7 @@ class BaseUserManager(BUM):
 
         return user
 
-    def create_superuser(self, email, password=None) -> "BaseUser":
+    def create_superuser(self, email, password=None) -> T:
         user = self.create_user(
             email=email,
             is_active=True,
