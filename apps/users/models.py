@@ -14,12 +14,14 @@ from apps.common.models import BaseModel
 # https://simpleisbetterthancomplex.com/article/2021/07/08/what-you-should-know-about-the-django-user-model.html
 
 
-class BaseUserManager[T: "BaseUser"](BUM):
-    def create_user(self, email, is_active=True, is_admin=False, password=None) -> T:
+class BaseUserManager(BUM["BaseUser"]):
+    def create_user(
+        self, email: str, is_active=True, is_admin=False, password=None
+    ) -> "BaseUser":
         if not email:
             raise ValueError("Users must have an email address")
 
-        user: T = self.model(
+        user: "BaseUser" = self.model(
             email=self.normalize_email(email.lower()),
             is_active=is_active,
             is_admin=is_admin,
@@ -35,7 +37,7 @@ class BaseUserManager[T: "BaseUser"](BUM):
 
         return user
 
-    def create_superuser(self, email, password=None) -> T:
+    def create_superuser(self, email, password=None) -> "BaseUser":
         user = self.create_user(
             email=email,
             is_active=True,
