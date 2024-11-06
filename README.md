@@ -121,39 +121,182 @@ I also really dislike the argument that "service function with cross-cutting con
 
 ## Selectors, GenericAPIView, and who should be filtering stuff?
 
-Aside from services, HackSoft also introduced the idea of selectors (or query services). I am not entirely sure how I feel about them, as often they are simply a pass-through to QuerySets and Managers. But then... they are a way to follow the uniform access principle.
+HackSoft also introduced the idea of selectors (or query services). They are a way to follow the uniform access principle, but... I think they can be improved a bit.
 
-The problem comes when we decide what to do about filtering. There are two approaches - handle it in the selectors, or handle it in the API. The latter is especially convenient if you use generic API classes. Is this an issue though?
+Here is how:
 
-HackSoft is generally against generic API classes, because they handle a lot of things through serializers, and maybe a bit of magic. I largely agree for WRITE APIs, but I think they are _mostly_ fine for read-only APIs. It could be argued that maintaining two different approaches for READ and WRITE APIs is a bad convention. However, I believe it can actually reinforce the idea that READ and WRITE are fundamentally different operations that do not benefit from uniform approaches.
+### Return QuerySets
 
-Furthermore, using generic classes give you more convenient pagination options, and you still know what is going on under the hood. Even HackSoft specifies that the base GenericAPIView is fine. I'd go as far as saying that **ReadOnlyModelViewSet** is fine too.
+Selectors should only ever return querysets, not lists or single values. This allows them to be used as default querysets in generic views, but also allows chaining. This is very beneficial, because we can utilize GenericAPIView, ListAPIView and RetrieveAPIView at least for READ and pagination convenience.
 
-Back to selectors and filtering - what should we do with them? I say let the generic API handle it through automatic filtering. If it makes you feel better, use a pass-through selector in the `get_queryset` method, instead of directly operating with the QuerySet.
+There are two general ways to use them for generic views: either in the `get_queryset` method as a return value for it, or directly within a request handler method. For example, `get_object_or_404` takes a model, a queryset, or a manager. We can easily pass our filtered queryset.
 
-### My reasoning
+### Expect the requesting user and `**filters`
 
-1. Automatic API filtering is by definition simple. It doesn't require a lot of setup, aside from configuring the **filter_backends** property and related fields.
-2. You are rather configuring, not writing query code, so no API-to-backend communication convention is being broken.
-3. If the setup seems finicky, it means more complex filtering is needed. No need to fight the generic API view, instead use a selector.
-4. Following from the above, we can infer the following:
-   - Selectors should exist as a part of the **service layer**, so their API is available (and discoverable) in the IDE.
-   - If they exist for a certain model, that means filtering is more complex for said model. If they don't exist, we can assume filtering is simple.
-   - A new person will more quickly realize which APIs are tied to more complex backend interactions, and which - to simpler ones.
+Selectors should usually (if not always) require the requesting user (which can be AnonymousUser). They will use that to "secure" the request by having it pass through an authorization (permission) filter function (an example can be seen in the next section). HackSoft's guide says those functions are also selectors, but to me they are fundamentally different. The endpoint doesn't request the user to see a permission-limited subset of all objects. Rather it simply requests a resource set given the requirements (filters).
 
-So for the price of not having uniform filtering logic on every single API (though it would be the uniform for most), we get the benefits of understanding the complexity of an API backend, without having to look at it specifically.
+Aside from the user, a `**filters` vararg should be passed through a `FilterSet` object from `django_filters`. Then the `qs` attribute on that filterset should simply be returned from the selector. The `**filters` are coming from a `FilterSerializer.validated_data` attribute, just as in HackSoft's guide. The `FilterSerializer` is simply a serializer that defines all the expected query parameters, and is constructed as `FilterSerializer(data=request.query_params)`
 
-I am adapting this argument from [James Bennett's article on properties](https://www.b-list.org/weblog/2023/dec/21/dont-use-python-property/). In our Django project hiding the filtering for the sake of uniformity may actually be withholding information that should rather be obvious.
+### Why this pattern?
 
-### But testability is better with a selector layer!
+1. It separates permissions from selection.
+2. It works with plain and generic API views.
+3. It can be separately tested.
+4. It can still utilize permission_classes simply as authentication checks
 
-Fair enough. But what will we be testing? If a selector only exists for uniformity reasons, tests just make sure that we are not screwing up the passthrough. This is still important, and a good safety net in case we need to complicate the filtering later. However, it doesn't really prove we're correctly configuring the API to use the filtering.
+## A note on API endpoints
 
-At the end of the day, there has to be an integration test, which checks whether an API call gets the expected results. We may have written the perfect filter, but if we are not correctly configuring the API, it wouldn't matter.
+HackSoft recommends having an endpoint for every single action. However, due to Django and DRF's limitations, this leads to a very bad REST implementation. Here is what I mean:
 
-This gives us 2 options:
+```
+   GET /resources             -- list view request
+  POST /resources/create      -- create view request
+   GET /resources/<pk>        -- detail view request
+   PUT /resources/<pk>/update  -- update view request
+DELETE /resources/<pk>/delete  -- delete view request (can possible be in another endpoint)
+```
 
-1. Write a selector, write tests for it, and always use it (for uniformity reasons). Write API integration tests nevertheless.
-2. Postpone writing the selector, until it is needed. Write API integration tests nevertheless.
+This isn't such a big deal, but it is not very RESTful, and complicates the URLconf. Technically speaking, you should really only have 2 general endpoints per resource - `/resources` and `/resources/<pk>`, i.e. list and detail endpoints.
 
-To me the second options seems preferable, as we won't be optimizing prematurely. But I also understand why someone would want the uniformity. Do what feels better.
+### My approach
+
+1. Use ListAPIView for getting a list of the resources (`get` method) and creating a resources (`post` method).
+2. Use RetrieveAPIView for getting the details of a resource (`get` method), updating a resource (`put` method) and deleting a resource (`delete` method).
+3. Have separate input and output serializers, setting the `serializer_class` attribute to the output serializer, because in most cases the get method will be auto-implemented.
+4. Define `permission_classes` with DRF syntax (using `&` and `|` for combining permissions) for authentication permissions.
+
+## Example (implementation of services, selectors, and endpoints)
+
+```python
+def publication_filter_user_visible(
+    req_user: BaseUser | AnonymousUser,
+) -> QuerySet[Publication]:
+    if req_user.is_staff:
+        return Publication.objects.get_queryset()
+
+    base_condition = Q(publish_date__lte=timezone.now())
+
+    if not req_user.is_authenticated:
+        return Publication.objects.filter(base_condition)
+
+    is_owner = Q(owner__pk=req_user.pk)
+    # add more permissions here, ex.:
+    # is_manager = Q(owner__managers_pk=req_user.pk)
+    full_condition = base_condition | is_owner
+
+    return Publication.objects.filter(full_condition)
+
+
+
+# ======================================================================================
+# PUBLICATION
+# ======================================================================================
+class PublicationListActionsAPI(generics.ListAPIView):
+    # ==================================================================================
+    # LIST
+    # ==================================================================================
+
+    class ListSerializer(serializers.Serializer):
+        pk = serializers.IntegerField(read_only=True)
+        owner = serializers.PrimaryKeyRelatedField(read_only=True)
+        owner_name = serializers.SerializerMethodField(read_only=True)
+        title = serializers.CharField()
+        body = serializers.CharField(write_only=True)
+        slug = serializers.CharField(required=False)
+        publish_date = serializers.DateTimeField(required=False)
+        created_at = serializers.DateTimeField(read_only=True)
+        updated_at = serializers.DateTimeField(read_only=True)
+        behind_paywall = serializers.BooleanField(read_only=True)
+
+        def get_owner_name(self, obj: Publication) -> str:
+            return obj.owner.full_name()
+
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    serializer_class = ListSerializer
+    search_fields = ["title"]
+    filterset_fields = ["owner", "behind_paywall"]
+
+    def get_queryset(self) -> QuerySet[Publication]:
+        return publication_filter_user_visible(self.request.user)
+
+    # ==================================================================================
+    # CREATE
+    # ==================================================================================
+    class CreateSerializer(serializers.Serializer):
+        title = serializers.CharField()
+        body = serializers.CharField()
+        slug = serializers.CharField(required=False)
+        publish_date = serializers.DateTimeField(required=False)
+
+    def post(self, request: Request) -> Response:
+        serializer = self.CreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if TYPE_CHECKING:
+            assert isinstance(request.user, BaseUser)
+
+        publication_create(owner=request.user, **serializer.validated_data)
+
+        return Response(status=status.HTTP_201_CREATED)
+
+
+class PublicationDetailActionsAPI(generics.RetrieveAPIView):
+    # ==================================================================================
+    # GET
+    # ==================================================================================
+    class OutputSerializer(serializers.Serializer):
+        pk = serializers.IntegerField()
+        owner = serializers.PrimaryKeyRelatedField(read_only=True)
+        owner_name = serializers.SerializerMethodField()
+        title = serializers.CharField()
+        body = serializers.CharField()
+        slug = serializers.CharField()
+        publish_date = serializers.DateTimeField()
+        created_at = serializers.DateTimeField()
+        updated_at = serializers.DateTimeField()
+        behind_paywall = serializers.BooleanField()
+
+        def get_owner_name(self, obj: Publication) -> str:
+            return obj.owner.full_name()
+
+    permission_classes = [
+        permissions.IsAdminUser | IsManager | (IsReadOnly & IsFreeOrHasPaid)
+    ]
+    serializer_class = OutputSerializer
+
+    def get_queryset(self) -> QuerySet[Publication]:
+        qs = publication_filter_user_visible(self.request.user)
+
+        return qs
+
+    # ==================================================================================
+    # UPDATE
+    # ==================================================================================
+    class InputSerializer(serializers.Serializer):
+        title = serializers.CharField(required=False)
+        body = serializers.CharField(required=False)
+        slug = serializers.CharField(required=False)
+        publish_date = serializers.DateTimeField(required=False)
+
+    def put(self, request: Request, pk: int) -> Response:
+        obj = get_object_or_404(Publication, pk=pk)
+        self.check_object_permissions(request, obj)
+
+        serializer = self.InputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        publication_update(publication=obj, **serializer.validated_data)
+
+        return Response(status=status.HTTP_200_OK)
+
+    # ==================================================================================
+    # DELETE
+    # ==================================================================================
+    def delete(self, request: Request, pk: int) -> Response:
+        obj = get_object_or_404(Publication, pk=pk)
+        self.check_object_permissions(request, obj)
+
+        obj.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+```
