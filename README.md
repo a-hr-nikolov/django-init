@@ -119,56 +119,40 @@ So what do we end up doing? I've read recommendations that creation and updating
 
 I also really dislike the argument that "service function with cross-cutting concerns are doing too much". Yes, and? Stop the "clean code" worshipping, and start being pragmatic. Yes, the functions may be creating an instance of this and that, sending a message, queuing a task, and saving the object. Is this too much? Yeah. Can it be solved reasonably? Not really, unless you want to really complicate your system. Sometimes that is necessary. Often it isn't. Just let functions do a lot, when they need to, and it is clear what is going on. Stop following rules for the sake of following rules.
 
-## Selectors, GenericAPIView, and who should be filtering stuff?
+## Selectors, generic views, and filters
 
-HackSoft also introduced the idea of selectors (or query services). They are a way to follow the uniform access principle, but... I think they can be improved a bit.
+Selectors are HackSoft's name for query services. They are a way to follow the uniform access principle, but... I don't like HackSoft's implementation. For example, I don't agree with their decision to put the query-param filtering logic on selectors. It leads to indirection, not to mention that user-specified filters are not a concern of the model itself (or the service layer). This can easily be solved in a much more straight-forward manner with `filter_backends`, `filterset_fields`, `search_fields`, and `ordering_fields`. The only argument against them is that they require QuerySet access. But that's not even an issue (as you'll see).
 
-Here is how:
+Does that mean that selectors are pointless? Not really. They are a great way to handle access logic, i.e. providing a pre-filtered QuerySet, which is transparent to the API. In fact, what I call "a selector" is a very simple permission filtering abstraction over what could simply be a [model manager](#the-model-manager-alternative). We can have that manager completely closed by default (i.e. have its `get_queryset` method return `queryset.none()`), and only providing a
+
+Anyway, here are my guidelines.
 
 ### Return QuerySets
 
-Selectors should only ever return querysets, not lists or single values. This allows them to be used as default querysets in generic views, but also allows chaining. This is very beneficial, because we can utilize GenericAPIView, ListAPIView and RetrieveAPIView at least for READ and pagination convenience.
+Selectors should only ever return querysets, not lists or single values. That way we can utilize GenericAPIView, ListAPIView and RetrieveAPIView at least for READ operations and pagination convenience. We can also use the querysets for further chaining, if necessary (e.g. some `.values()` calls, annotations, etc.)
 
-There are two general ways to use them for generic views: either in the `get_queryset` method as a return value for it, or directly within a request handler method. For example, `get_object_or_404` takes a model, a queryset, or a manager. We can easily pass our filtered queryset.
+There are two general ways to use them for generic views: either in the `get_queryset` method as a return value for it, or directly within a request handler method. For example, `get_object_or_404` takes a model, a queryset, or a manager. Since we shouldn't ever touch the model directly, this is where we pass our filtered queryset selector.
 
-### Expect the requesting user and `**filters`
+### Expect the requesting user
 
-Selectors should usually (if not always) require the requesting user (which can be AnonymousUser). They will use that to "secure" the request by having it pass through an authorization (permission) filter function (an example can be seen in the next section). HackSoft's guide says those functions are also selectors, but to me they are fundamentally different. The endpoint doesn't request the user to see a permission-limited subset of all objects. Rather it simply requests a resource set given the requirements (filters).
+Selectors should usually (if not always) require the requesting user (which can be AnonymousUser). They will use that to "secure" the request by having it pass through an authorization (permission) filter function (an example can be seen in the next section). Then we can sprinkle some additional details. For example, say we have a resource we want to list, but don't want to have its contents available until some condition is met (e.g. a digital product may be listed, but its contents shouldn't be available). We can easily return some info in a detail view, but have it redacted by our selector (e.g. through an annotation that overrides a field and another one that may specify the restricted status).
 
-Aside from the user, a `**filters` vararg should be passed through a `FilterSet` object from `django_filters`. Then the `qs` attribute on that filterset should simply be returned from the selector. The `**filters` are coming from a `FilterSerializer.validated_data` attribute, just as in HackSoft's guide. The `FilterSerializer` is simply a serializer that defines all the expected query parameters, and is constructed as `FilterSerializer(data=request.query_params)`
+Since the return value will always be a queryset, if there are some API-specific filters we want, we can go ahead and apply them. For example, a specific endpoint may need to return 404 for a restricted resource, which would otherwise return details with redacted content.
 
 ### Why this pattern?
 
-1. It separates permissions from selection.
+1. It separates permissions from user-requested filtering.
 2. It works with plain and generic API views.
 3. It can be separately tested.
 4. It can still utilize permission_classes simply as authentication checks
+5. It gives us a lot of flexibility with the endpoints.
 
-## A note on API endpoints
+### Example
 
-HackSoft recommends having an endpoint for every single action. However, due to Django and DRF's limitations, this leads to a very bad REST implementation. Here is what I mean:
-
-```
-   GET /resources             -- list view request
-  POST /resources/create      -- create view request
-   GET /resources/<pk>        -- detail view request
-   PUT /resources/<pk>/update  -- update view request
-DELETE /resources/<pk>/delete  -- delete view request (can possible be in another endpoint)
-```
-
-This isn't such a big deal, but it is not very RESTful, and complicates the URLconf. Technically speaking, you should really only have 2 general endpoints per resource - `/resources` and `/resources/<pk>`, i.e. list and detail endpoints.
-
-### My approach
-
-1. Use ListAPIView for getting a list of the resources (`get` method) and creating a resources (`post` method).
-2. Use RetrieveAPIView for getting the details of a resource (`get` method), updating a resource (`put` method) and deleting a resource (`delete` method).
-3. Have separate input and output serializers, setting the `serializer_class` attribute to the output serializer, because in most cases the get method will be auto-implemented.
-4. Define `permission_classes` with DRF syntax (using `&` and `|` for combining permissions) for authentication permissions.
-
-## Example (implementation of services, selectors, and endpoints)
+#### Selectors
 
 ```python
-def publication_filter_user_visible(
+def _publication_filter_user_visible(
     req_user: BaseUser | AnonymousUser,
 ) -> QuerySet[Publication]:
     if req_user.is_staff:
@@ -187,18 +171,99 @@ def publication_filter_user_visible(
     return Publication.objects.filter(full_condition)
 
 
+def publication_get_list_queryset(
+    requested_by: BaseUser | AnonymousUser,
+) -> QuerySet[Publication]:
+    qs = _publication_filter_user_visible(requested_by)
+    return qs
 
-# ======================================================================================
-# PUBLICATION
-# ======================================================================================
+
+def publication_get_detail_queryset(
+    requested_by: BaseUser | AnonymousUser,
+) -> QuerySet[Publication]:
+    qs = _publication_filter_user_visible(requested_by)
+    # qs = qs.annotate(body=Case(When(not_purchased, then=""), restricted=Case(...)))
+    return qs
+```
+
+### The model manager alternative
+
+If you don't fancy the selector, and prefer to work via a model manager, there a few things you need to do.
+
+1. Override the `get_queryset` method to return `super().get_queryset().none()`. That way the manager will always return empty querysets if used directly.
+2. Define a private method for permission filtering.
+3. Define another method (e.g. `get_allowed_queryset(user)`), which will return the permission-filtered queryset.
+4. Add any additional QuerySet suppliers. For example, I prefer to have list and detail view queryset methods, even if they are initially the same.
+
+```python
+class PublicationManager(models.Manager):
+    def get_queryset(self) -> models.QuerySet:
+        return super().get_queryset().none()
+
+    def get_allowed_list_queryset(self, user: BaseUser | AnonymousUser) -> models.QuerySet["Publication"]:
+        ...
+
+    def get_allowed_detail_queryset(self, user: BaseUser | AnonymousUser) -> models.QuerySet["Publication"]:
+        ...
+
+    def _publication_filter_user_visible(
+        req_user: BaseUser | AnonymousUser,
+    ) -> QuerySet[Publication]:
+        if req_user.is_staff:
+            return Publication.objects.get_queryset()
+
+        base_condition = Q(publish_date__lte=timezone.now())
+
+        if not req_user.is_authenticated:
+            return Publication.objects.filter(base_condition)
+
+        is_owner = Q(owner__pk=req_user.pk)
+        # add more permissions here, ex.:
+        # is_manager = Q(owner__managers_pk=req_user.pk)
+        full_condition = base_condition | is_owner
+
+        return Publication.objects.filter(full_condition)
+
+
+class Publication(BaseModel):
+    ...
+    objects = PublicationManager()
+    ...
+```
+
+## A note on API endpoints
+
+My API endpoint approach differs significantly from HackSoft's. They have an endpoint for every single action. However, due to Django and DRF's limitations, this leads to a very bad REST implementation. Here is what I mean:
+
+```
+   GET  /resources              -- list view request
+  POST  /resources/create       -- create view request
+   GET  /resources/<pk>         -- detail view request
+   PUT  /resources/<pk>/update  -- update view request
+DELETE  /resources/<pk>/delete  -- delete view request (can possible be in another endpoint)
+```
+
+This isn't such a big deal, but it is not very RESTful, and complicates the URLconf. You should really only have 2 general endpoints per resource - `/resources` and `/resources/<pk>`, i.e. list and detail endpoints. If you really need to define separate views for those, there are actually routing hacks (i.e. define the method on one view, but delegate it to another). However, I have yet to find a situation where I cannot make the generic endpoints work. For example, if I need separate permission classes, I simply override `get_permission_classes`. This applies to pretty much everything.
+
+### My approach
+
+1. Use ListAPIView for getting a resource list (`get` method) and creating a resource (`post` method).
+2. Use RetrieveAPIView for getting a resource's details (`get` method), updating a resource (`put` method) and deleting a resource (`delete` method).
+3. Have separate input and output serializers. Set the `serializer_class` attribute to the output serializer, because in most cases the `get` method will be auto-implemented.
+4. Define `permission_classes` with DRF syntax (using `&` and `|` for combining permissions) for authentication permissions.
+
+### Example
+
+```python
 class PublicationListActionsAPI(generics.ListAPIView):
     # ==================================================================================
     # LIST
     # ==================================================================================
-
     class ListSerializer(serializers.Serializer):
         pk = serializers.IntegerField(read_only=True)
-        owner = serializers.PrimaryKeyRelatedField(read_only=True)
+        owner: serializers.PrimaryKeyRelatedField = serializers.PrimaryKeyRelatedField(
+            read_only=True
+        )
         owner_name = serializers.SerializerMethodField(read_only=True)
         title = serializers.CharField()
         body = serializers.CharField(write_only=True)
@@ -217,7 +282,7 @@ class PublicationListActionsAPI(generics.ListAPIView):
     filterset_fields = ["owner", "behind_paywall"]
 
     def get_queryset(self) -> QuerySet[Publication]:
-        return publication_filter_user_visible(self.request.user)
+        return publication_get_list_queryset(self.request.user)
 
     # ==================================================================================
     # CREATE
@@ -246,7 +311,9 @@ class PublicationDetailActionsAPI(generics.RetrieveAPIView):
     # ==================================================================================
     class OutputSerializer(serializers.Serializer):
         pk = serializers.IntegerField()
-        owner = serializers.PrimaryKeyRelatedField(read_only=True)
+        owner: serializers.PrimaryKeyRelatedField = serializers.PrimaryKeyRelatedField(
+            read_only=True
+        )
         owner_name = serializers.SerializerMethodField()
         title = serializers.CharField()
         body = serializers.CharField()
@@ -265,7 +332,7 @@ class PublicationDetailActionsAPI(generics.RetrieveAPIView):
     serializer_class = OutputSerializer
 
     def get_queryset(self) -> QuerySet[Publication]:
-        qs = publication_filter_user_visible(self.request.user)
+        qs = publication_get_detail_queryset(self.request.user)
 
         return qs
 
@@ -279,7 +346,8 @@ class PublicationDetailActionsAPI(generics.RetrieveAPIView):
         publish_date = serializers.DateTimeField(required=False)
 
     def put(self, request: Request, pk: int) -> Response:
-        obj = get_object_or_404(Publication, pk=pk)
+        qs = self.get_queryset()
+        obj = get_object_or_404(qs, pk=pk)
         self.check_object_permissions(request, obj)
 
         serializer = self.InputSerializer(data=request.data)
@@ -293,10 +361,11 @@ class PublicationDetailActionsAPI(generics.RetrieveAPIView):
     # DELETE
     # ==================================================================================
     def delete(self, request: Request, pk: int) -> Response:
-        obj = get_object_or_404(Publication, pk=pk)
+        qs = self.get_queryset()
+        obj = get_object_or_404(qs, pk=pk)
         self.check_object_permissions(request, obj)
 
-        obj.delete()
+        publication_delete(publication=obj)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 ```
