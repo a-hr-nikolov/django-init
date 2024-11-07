@@ -121,7 +121,14 @@ I also really dislike the argument that "service function with cross-cutting con
 
 ## Selectors, generic views, and filters
 
-Selectors are HackSoft's name for query services. They are a way to follow the uniform access principle, but... I don't like HackSoft's implementation. For example, I don't agree with their decision to put the query-param filtering logic on selectors. It leads to indirection, not to mention that user-specified filters are not a concern of the model itself (or the service layer). This can easily be solved in a much more straight-forward manner with `filter_backends`, `filterset_fields`, `search_fields`, and `ordering_fields`. The only argument against them is that they require QuerySet access. But that's not even an issue (as you'll see).
+Selectors are HackSoft's name for query services. They are a way to follow the uniform access principle, but... I don't like HackSoft's implementation. For example, I don't agree with their decision to put the query-param filtering logic on selectors. It leads to indirection, not to mention that user-specified filters are not a concern of the model itself (or the service layer). This can easily be solved in a much more straight-forward manner with `filter_backends`, `filterset_fields`, `search_fields`, and `ordering_fields`.
+
+There are two arguments against those:
+
+1. They require QuerySet access.
+2. They do not explicitly validate the query parameters.
+
+The first argument is valid only if you don't think QuerySets should be exposed. But I don't see that as a problem, as you'll see in a second. The second argument has a bit more ground, but actually, the filter backends do in fact take care of validation (at least a basic one). And if we need some more serious query param validation, we can always define a query param serializer and a filterset class that uses it. It's really a non-issue.
 
 Does that mean that selectors are pointless? Not really. They are a great way to handle access logic, i.e. providing a pre-filtered QuerySet, which is transparent to the API. In fact, what I call "a selector" is a very simple permission filtering abstraction over what could simply be a [model manager](#the-model-manager-alternative). We can have that manager completely closed by default (i.e. have its `get_queryset` method return `queryset.none()`), and only providing a
 
@@ -194,6 +201,7 @@ If you don't fancy the selector, and prefer to work via a model manager, there a
 2. Define a private method for permission filtering.
 3. Define another method (e.g. `get_allowed_queryset(user)`), which will return the permission-filtered queryset.
 4. Add any additional QuerySet suppliers. For example, I prefer to have list and detail view queryset methods, even if they are initially the same.
+5. On the model first define a standard manager (e.g. `manager = models.Manager()`), and only then override the `objects`. That way you wouldn't have to configure the meta class with an appropriate default manager (i.e. with a regular queryset),
 
 ```python
 class PublicationManager(models.Manager):
@@ -227,6 +235,7 @@ class PublicationManager(models.Manager):
 
 class Publication(BaseModel):
     ...
+    manager = models.Manager()
     objects = PublicationManager()
     ...
 ```
