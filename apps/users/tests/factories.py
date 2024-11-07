@@ -1,41 +1,27 @@
 import factory
 
 from apps.users.models import BaseUser
+from apps.utils.faker import get_faker
 
-DUMMY_EMAILS = [
-    "john_doe@example.com",
-    "alex_smith@example.com",
-    "jane_doe@example.com",
-    "mike_jones@example.com",
-    "sarah_lee@example.com",
-    "emma_davis@example.com",
-    "david_clark@example.com",
-    "lisa_white@example.com",
-    "matt_johnson@example.com",
-    "amy_wilson@example.com",
-]
-
-DUMMY_PASSWORD = "dummy-password"
+faker = get_faker()
 
 
 class UserFactory(factory.django.DjangoModelFactory):
-    email = factory.Iterator(DUMMY_EMAILS)
+    email = faker.unique.email(safe=True)
     is_admin = False
-    password = DUMMY_PASSWORD
 
     class Meta:
         model = BaseUser
-        django_get_or_create = ["email"]
 
     @classmethod
     def _create(cls, model_class, email, is_admin, *args, **kwargs) -> BaseUser:
+        user = BaseUser.objects.filter(email=email).first()
+        if user:
+            return user
         return BaseUser.objects.create_user(
-            email=email, is_admin=is_admin, password=DUMMY_PASSWORD
+            email=email, is_admin=is_admin, password="dummy-pass"
         )
 
-
-def supply_user() -> BaseUser:
-    usr = BaseUser.objects.filter(email="john_doe@example.com").first()
-    if usr:
-        return usr
-    return BaseUser.objects.create_user(email="john_doe@example.com", password="lame")
+    @classmethod
+    def default(cls) -> BaseUser:
+        return cls.create(email="john_doe_johnson_unique@example.com")
