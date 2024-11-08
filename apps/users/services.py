@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 import django_filters
 from django.db import transaction
 from django.db.models.query import QuerySet
@@ -12,14 +14,24 @@ class BaseUserFilter(django_filters.FilterSet):
         fields = ("id", "email", "is_admin")
 
 
-def user_get_login_data(*, user: BaseUser):
-    return {
-        "id": user.id,
-        "email": user.email,
-        "is_active": user.is_active,
-        "is_admin": user.is_admin,
-        "is_superuser": user.is_superuser,
-    }
+class UserDict(TypedDict):
+    id: int
+    email: str
+    is_active: bool
+    is_admin: bool
+    is_superuser: bool
+
+
+def user_get_login_data(*, user: BaseUser) -> UserDict:
+    return UserDict(
+        {
+            "id": user.id,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_admin": user.is_admin,
+            "is_superuser": user.is_superuser,
+        }
+    )
 
 
 def user_list(*, filters=None) -> QuerySet[BaseUser]:
